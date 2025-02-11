@@ -18,6 +18,9 @@ app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Static Files
+app.use("/public", express.static(path.join(__dirname, "public")));
+
 mySqlPool
   .query("SELECT 1")
   .then(() => {
@@ -26,9 +29,6 @@ mySqlPool
   .catch((error) => {
     console.log(error);
   });
-
-// Static Files
-app.use("/public", express.static(path.join(__dirname, "public")));
 
 // Server Start
 const port = process.env.PORT || 8000;

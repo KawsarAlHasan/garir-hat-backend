@@ -1,7 +1,34 @@
 const express = require("express");
 const app = express();
+const firebaseAdmin = require("./config/firebase");
 
 app.use(express.json());
+
+app.use("/api/v1/user", require("./router/userRoute"));
+app.use("/api/v1/vendor", require("./router/vendorRoute"));
+
+app.post("/verify-otp", (req, res) => {
+  const { sessionCookie, otp } = req.body;
+
+  firebaseAdmin
+    .auth()
+    .verifySessionCookie(sessionCookie)
+    .then((decodedClaims) => {
+      return firebaseAdmin.auth().verifyPhoneNumber(decodedClaims.uid, otp);
+    })
+    .then((userRecord) => {
+      const { uid, phoneNumber } = userRecord;
+      console.log(uid, phoneNumber);
+      // const query = 'INSERT INTO users (uid, phoneNumber) VALUES (?, ?)';
+      // db.query(query, [uid, phoneNumber], (err, result) => {
+      //   if (err) throw err;
+      //   res.status(200).send({ message: 'User registered successfully', uid });
+      // });
+    })
+    .catch((error) => {
+      res.status(500).send({ error: error.message });
+    });
+});
 
 // Default Route
 app.get("/", (req, res) => {
