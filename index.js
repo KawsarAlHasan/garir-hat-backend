@@ -2,7 +2,6 @@ const express = require("express");
 const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const path = require("path");
 const app = require("./app");
 const mySqlPool = require("./config/db");
 dotenv.config();
@@ -17,9 +16,6 @@ app.options("*", cors(globalCorsOptions));
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Static Files
-app.use("/public", express.static(path.join(__dirname, "public")));
 
 mySqlPool
   .query("SELECT 1")
