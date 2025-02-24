@@ -1,4 +1,6 @@
 const db = require("../config/db");
+const fs = require("fs");
+const path = require("path");
 
 // Create new vehicle
 exports.createNewVehicle = async (req, res) => {
@@ -17,6 +19,7 @@ exports.createNewVehicle = async (req, res) => {
       fuel_efficiency_kmpl,
       drive_type,
       color,
+      interior_color,
       description,
       vehicle_condition,
       registration_number,
@@ -24,6 +27,7 @@ exports.createNewVehicle = async (req, res) => {
       rtn,
       power,
       cabin_size,
+      trunk_size,
       top_speed,
       vin_number,
       trim,
@@ -31,9 +35,15 @@ exports.createNewVehicle = async (req, res) => {
       district,
       upzila,
       city,
+      discount_price,
       features,
       prices,
     } = req.body;
+
+    const yearOfManufacture = new Date(year_of_manufacture).getUTCFullYear();
+
+    const parsedFeatures = features ? JSON.parse(features) : [];
+    const parsedPrices = prices ? JSON.parse(prices) : [];
 
     const vendor_id = req.decodedVendor.id;
 
@@ -88,25 +98,29 @@ exports.createNewVehicle = async (req, res) => {
 
     const query = `
       INSERT INTO vehicles (
-        vehicle_code, vendor_id, thumbnail_image, price, make, model, year_of_manufacture, mileage, fuel_type,
+        vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type,
         transmission, body_type, seating_capacity, doors, engine_capacity_cc,
-        fuel_efficiency_kmpl, drive_type, color, description, vehicle_condition,
-        registration_number, registration_year, rtn, power, cabin_size,
+        fuel_efficiency_kmpl, drive_type, color, 	interior_color, description, vehicle_condition,
+        registration_number, registration_year, rtn, power, cabin_size, trunk_size,
         top_speed, vin_number, trim, division, district, upzila, city
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    let totalPrice = prices.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    let totalPrice = parsedPrices.reduce(
+      (sum, p) => sum + parseFloat(p.amount),
+      0
+    );
 
     const values = [
       vehicle_code,
       vendor_id,
       thumbnailUrl,
       totalPrice,
+      discount_price || 0,
       make,
       model,
-      year_of_manufacture || "",
+      yearOfManufacture || "",
       mileage || "",
       fuel_type || "",
       transmission || "",
@@ -117,6 +131,7 @@ exports.createNewVehicle = async (req, res) => {
       fuel_efficiency_kmpl || "",
       drive_type || "",
       color || "",
+      interior_color || "",
       description || "",
       vehicle_condition || "",
       registration_number || "",
@@ -124,6 +139,7 @@ exports.createNewVehicle = async (req, res) => {
       rtn || "",
       power || "",
       cabin_size || "",
+      trunk_size || "",
       top_speed || "",
       vin_number || "",
       trim || "",
@@ -144,9 +160,12 @@ exports.createNewVehicle = async (req, res) => {
 
     const vehicle_id = result.insertId;
 
-    // **Vehicle Pricing (reason, amount)
     const pricingQuery = `INSERT INTO vehicle_pricing (vehicle_id, reason, amount) VALUES ?`;
-    const pricingValues = prices.map((p) => [vehicle_id, p.reason, p.amount]);
+    const pricingValues = parsedPrices.map((p) => [
+      vehicle_id,
+      p.reason,
+      p.amount,
+    ]);
 
     await db.query(pricingQuery, [pricingValues]);
 
@@ -163,10 +182,13 @@ exports.createNewVehicle = async (req, res) => {
       await db.query(imageInsertQuery, [imageValues]);
     }
 
-    if (features && features.length > 0) {
-      const featureQuery = `INSERT INTO vehicle_features (vehicle_id, feature_name) VALUES ?`;
-      const featureValues = features.map((feature) => [vehicle_id, feature]);
-
+    if (Array.isArray(parsedFeatures) && parsedFeatures.length > 0) {
+      const featureQuery =
+        "INSERT INTO vehicle_features (vehicle_id, feature_name) VALUES ?";
+      const featureValues = parsedFeatures.map((feature) => [
+        vehicle_id,
+        feature.name,
+      ]);
       await db.query(featureQuery, [featureValues]);
     }
 
@@ -217,7 +239,7 @@ exports.getAllVehicles = async (req, res) => {
         .json({ success: false, message: "No vehicles found", data: [] });
     }
 
-    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
+    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
     const vehicleParams = [...params, parseInt(limit), offset];
     const [vehicles] = await db.query(vehicleQuery, vehicleParams);
 
@@ -291,6 +313,7 @@ exports.getSingleVehicleWithId = async (req, res) => {
   }
 };
 
+// update vehicle
 exports.updateVehicle = async (req, res) => {
   try {
     const { id } = req.params;
@@ -310,6 +333,7 @@ exports.updateVehicle = async (req, res) => {
       fuel_efficiency_kmpl,
       drive_type,
       color,
+      interior_color,
       description,
       vehicle_condition,
       registration_number,
@@ -317,6 +341,7 @@ exports.updateVehicle = async (req, res) => {
       rtn,
       power,
       cabin_size,
+      trunk_size,
       top_speed,
       vin_number,
       trim,
@@ -324,6 +349,7 @@ exports.updateVehicle = async (req, res) => {
       district,
       upzila,
       city,
+      discount_price,
       features,
       prices,
     } = req.body;
@@ -349,16 +375,28 @@ exports.updateVehicle = async (req, res) => {
       req.files.thumbnail_image &&
       req.files.thumbnail_image.length > 0
     ) {
+      const thumbnailImage = path.basename(vehicle.thumbnail_image);
+      const thumbnailImagePath = path.join(
+        __dirname,
+        "..",
+        "public",
+        "images",
+        thumbnailImage
+      );
+      if (fs.existsSync(thumbnailImagePath)) {
+        fs.unlinkSync(thumbnailImagePath);
+      }
       thumbnailUrl = `https://api.garirhat.com/public/images/${req.files.thumbnail_image[0].filename}`;
     }
 
     let totalPrice = prices.reduce((sum, p) => sum + parseFloat(p.amount), 0);
     // Update the vehicles data in the database
     await db.query(
-      `UPDATE vehicles SET thumbnail_image=?, price=?, make=?, model=?, year_of_manufacture=?, mileage=?, fuel_type=?, transmission=?, body_type=?, seating_capacity=?, doors=?, engine_capacity_cc=?, fuel_efficiency_kmpl=?, drive_type=?, color=?, description=?, vehicle_condition=?, registration_number=?, registration_year=?, rtn=?, power=?, cabin_size=?, top_speed=?, vin_number=?, trim=?, division=?, district=?, upzila=?, city=? WHERE id = ?`,
+      `UPDATE vehicles SET thumbnail_image=?, price=?, discount_price=?, make=?, model=?, year_of_manufacture=?, mileage=?, fuel_type=?, transmission=?, body_type=?, seating_capacity=?, doors=?, engine_capacity_cc=?, fuel_efficiency_kmpl=?, drive_type=?, color=?, interior_color?, description=?, vehicle_condition=?, registration_number=?, registration_year=?, rtn=?, power=?, cabin_size=?, trunk_size=?, top_speed=?, vin_number=?, trim=?, division=?, district=?, upzila=?, city=? WHERE id = ?`,
       [
         thumbnailUrl,
         totalPrice || vehicle.price,
+        discount_price || vehicle.discount_price,
         make || vehicle.make,
         model || vehicle.model,
         year_of_manufacture || vehicle.year_of_manufacture,
@@ -372,6 +410,7 @@ exports.updateVehicle = async (req, res) => {
         fuel_efficiency_kmpl || vehicle.fuel_efficiency_kmpl,
         drive_type || vehicle.drive_type,
         color || vehicle.color,
+        interior_color || vehicle.interior_color,
         description || vehicle.description,
         vehicle_condition || vehicle.vehicle_condition,
         registration_number || vehicle.registration_number,
@@ -379,6 +418,7 @@ exports.updateVehicle = async (req, res) => {
         rtn || vehicle.rtn,
         power || vehicle.power,
         cabin_size || vehicle.cabin_size,
+        trunk_size || vehicle.trunk_size,
         top_speed || vehicle.top_speed,
         vin_number || vehicle.vin_number,
         trim || vehicle.trim,
@@ -398,6 +438,26 @@ exports.updateVehicle = async (req, res) => {
     await db.query(pricingQuery, [pricingValues]);
 
     if (req.files && req.files.images && req.files.images.length > 0) {
+      const [images] = await db.query(
+        `SELECT image_url FROM vehicle_images WHERE vehicle_id=?`,
+        [id]
+      );
+
+      images.forEach((img) => {
+        if (!img.image_url) return;
+        const imageFileName = path.basename(img.image_url);
+        const imagePath = path.join(
+          __dirname,
+          "..",
+          "public",
+          "images",
+          imageFileName
+        );
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      });
+
       await db.query(`DELETE FROM vehicle_images WHERE vehicle_id=?`, [id]);
 
       const imageInsertQuery = `
@@ -438,18 +498,48 @@ exports.updateVehicle = async (req, res) => {
 exports.deleteVehicle = async (req, res) => {
   try {
     const vehicleID = req.params.id;
-    const vendor_id = 1;
 
-    const [data] = await db.query(
-      `SELECT * FROM vehicles WHERE id=? AND vendor_id =?`,
-      [vehicleID, vendor_id]
-    );
+    const [data] = await db.query(`SELECT * FROM vehicles WHERE id=?`, [
+      vehicleID,
+    ]);
     if (!data || data.length === 0) {
       return res.status(201).send({
         success: false,
         message: "No vehicle found",
       });
     }
+
+    const thumbnailImage = path.basename(data[0].thumbnail_image);
+    const thumbnailImagePath = path.join(
+      __dirname,
+      "..",
+      "public",
+      "images",
+      thumbnailImage
+    );
+    if (fs.existsSync(thumbnailImagePath)) {
+      fs.unlinkSync(thumbnailImagePath);
+    }
+
+    const [images] = await db.query(
+      `SELECT image_url FROM vehicle_images WHERE vehicle_id=?`,
+      [vehicleID]
+    );
+
+    images.forEach((img) => {
+      if (!img.image_url) return;
+      const imageFileName = path.basename(img.image_url);
+      const imagePath = path.join(
+        __dirname,
+        "..",
+        "public",
+        "images",
+        imageFileName
+      );
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    });
 
     await db.query(`DELETE FROM vehicle_images WHERE vehicle_id=?`, [
       vehicleID,

@@ -22,6 +22,6 @@ router.post(
 );
 router.get("/all", getAllVehicles);
 router.get("/:id", getSingleVehicleWithId);
-router.delete("/delete/:id", verifyVendor, deleteVehicle);
+router.delete("/delete/:id", deleteVehicle);
 
 module.exports = router;
