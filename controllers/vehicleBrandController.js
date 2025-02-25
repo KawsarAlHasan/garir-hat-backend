@@ -4,12 +4,21 @@ const db = require("../config/db");
 exports.getAllVehiclesBrandWithModel = async (req, res) => {
   try {
     const { status } = req.query;
-    let query = "SELECT * FROM vehicles_brand";
+    let query = "SELECT id, brand_name FROM vehicles_brand";
     let queryParams = [];
 
+    let conditions = [];
+
     if (status === "active") {
-      query += " WHERE status = ?";
+      conditions.push("status = ?");
       queryParams.push("active");
+    }
+
+    conditions.push("is_others = ?");
+    queryParams.push(0);
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
     }
 
     query += " ORDER BY brand_name ASC";
@@ -27,7 +36,48 @@ exports.getAllVehiclesBrandWithModel = async (req, res) => {
     for (const brand of brands) {
       const brandID = brand.id;
 
-      let modelQuery = "SELECT * FROM vehicles_model WHERE brand_id = ?";
+      let modelQuery =
+        "SELECT id, model_name FROM vehicles_model WHERE brand_id = ?";
+      let modelParams = [brandID];
+
+      if (status === "active") {
+        modelQuery += " AND status = ?";
+        modelParams.push("active");
+      }
+
+      modelQuery += " ORDER BY model_name ASC";
+
+      const [models] = await db.query(modelQuery, modelParams);
+      brand.models = models;
+    }
+
+    // othersBrands
+    let queryOthers = "SELECT id, brand_name FROM vehicles_brand";
+    let queryParamsOthers = [];
+
+    let conditionsOthers = [];
+
+    if (status === "active") {
+      conditionsOthers.push("status = ?");
+      queryParamsOthers.push("active");
+    }
+
+    conditionsOthers.push("is_others = ?");
+    queryParamsOthers.push(1);
+
+    if (conditionsOthers.length > 0) {
+      queryOthers += " WHERE " + conditionsOthers.join(" AND ");
+    }
+
+    queryOthers += " ORDER BY brand_name ASC";
+
+    const [othersBrands] = await db.query(queryOthers, queryParamsOthers);
+
+    for (const brand of othersBrands) {
+      const brandID = brand.id;
+
+      let modelQuery =
+        "SELECT id, model_name FROM vehicles_model WHERE brand_id = ?";
       let modelParams = [brandID];
 
       if (status === "active") {
@@ -46,6 +96,7 @@ exports.getAllVehiclesBrandWithModel = async (req, res) => {
       message: "All Vehicles Brand",
       totalVehicle: brands.length,
       data: brands,
+      othersBrands: othersBrands,
     });
   } catch (error) {
     res.status(500).send({
@@ -88,8 +139,8 @@ exports.getAllVehiclesBrandForAdmin = async (req, res) => {
 exports.getAllBrandsForVendor = async (req, res) => {
   try {
     const [data] = await db.query(
-      "SELECT id, brand_name, image FROM vehicles_brand WHERE status =?",
-      ["active"]
+      "SELECT id, brand_name, image FROM vehicles_brand WHERE status =? AND is_others=?",
+      ["active", 0]
     );
 
     if (!data || data.length === 0) {
@@ -100,11 +151,17 @@ exports.getAllBrandsForVendor = async (req, res) => {
       });
     }
 
+    const [others] = await db.query(
+      "SELECT id, brand_name, image FROM vehicles_brand WHERE status =? AND is_others=?",
+      ["active", 1]
+    );
+
     res.status(200).send({
       success: true,
       message: "All Brand",
       totalBrand: data.length,
       data: data,
+      others: others,
     });
   } catch (error) {
     res.status(500).send({
@@ -269,6 +326,8 @@ exports.deleteBrand = async (req, res) => {
         message: "No brand found",
       });
     }
+    await db.query(`DELETE FROM vehicles_model WHERE brand_id=?`, [brandID]);
+
     await db.query(`DELETE FROM vehicles_brand WHERE id=?`, [brandID]);
     res.status(200).send({
       success: true,

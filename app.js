@@ -37,6 +37,8 @@ app.use("/api/v1/price-reason", require("./router/vehiclePricingReasonRoute"));
 // others
 app.use("/api/v1/location", require("./router/locationRoute"));
 
+app.use("/api/v1/interest", require("./router/interestedVehicleRouter"));
+
 // Default Route
 app.get("/", (req, res) => {
   res.status(200).send("Garir Hat server is working");
