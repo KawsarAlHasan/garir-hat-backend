@@ -184,10 +184,10 @@ exports.createNewVehicle = async (req, res) => {
 
     if (Array.isArray(parsedFeatures) && parsedFeatures.length > 0) {
       const featureQuery =
-        "INSERT INTO vehicle_features (vehicle_id, feature_name) VALUES ?";
+        "INSERT INTO vehicle_features (vehicle_id, 	feature_id) VALUES ?";
       const featureValues = parsedFeatures.map((feature) => [
         vehicle_id,
-        feature.name,
+        feature.id,
       ]);
       await db.query(featureQuery, [featureValues]);
     }
@@ -207,7 +207,60 @@ exports.createNewVehicle = async (req, res) => {
   }
 };
 
-// get all vehicle with filter
+// get all vehicle with filter Flutter
+exports.getAllVehiclesForFlutter = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sort = "id", ...filters } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let baseQuery = "FROM vehicles WHERE 1=1";
+    let params = [];
+
+    Object.keys(filters).forEach((key) => {
+      if (filters[key]) {
+        if (Array.isArray(filters[key])) {
+          const placeholders = filters[key].map(() => "?").join(",");
+          baseQuery += ` AND ${key} IN (${placeholders})`;
+          params.push(...filters[key]);
+        } else {
+          baseQuery += ` AND ${key} = ?`;
+          params.push(filters[key]);
+        }
+      }
+    });
+
+    // count totaal vehicle
+    const countQuery = `SELECT COUNT(*) AS total ${baseQuery}`;
+    const [[{ total: totalVehicles }]] = await db.query(countQuery, params);
+
+    if (totalVehicles === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "No vehicles found", data: [] });
+    }
+
+    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, body_type, vehicle_condition, division, district, upzila, city, created_at ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
+    const vehicleParams = [...params, parseInt(limit), offset];
+    const [vehicles] = await db.query(vehicleQuery, vehicleParams);
+
+    res.status(200).json({
+      success: true,
+      message: "All vehicles",
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalVehicles / parseInt(limit)),
+      totalVehicles,
+      data: vehicles,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error in Get All Vehicles",
+      error: error.message,
+    });
+  }
+};
+
+// get all vehicle with filter Web
 exports.getAllVehicles = async (req, res) => {
   try {
     const { page = 1, limit = 10, sort = "id", ...filters } = req.query;
@@ -278,6 +331,7 @@ exports.getSingleVehicleWithId = async (req, res) => {
 
     let vehicle = vehicles[0];
 
+    // images
     const [images] = await db.query(
       "SELECT image_url FROM vehicle_images WHERE vehicle_id = ?",
       [vehicle.id]
@@ -287,12 +341,38 @@ exports.getSingleVehicleWithId = async (req, res) => {
       ...images.map((img) => img.image_url),
     ];
 
-    const [features] = await db.query(
-      "SELECT feature_name FROM vehicle_features WHERE vehicle_id = ?",
-      [vehicle.id]
+    // feature
+    const [featureCategory] = await db.execute(
+      "SELECT * FROM feature_category"
     );
-    vehicle.features = features.map((f) => f.feature_name);
 
+    // Get features for the specific vehicle
+    const featureQuery = `
+            SELECT 
+                f.id AS feature_id, 
+                f.feature_name, 
+                f.category_id 
+            FROM vehicle_features vf
+            JOIN features f ON vf.feature_id = f.id
+            WHERE vf.vehicle_id = ?;
+        `;
+
+    const [features] = await db.query(featureQuery, [id]);
+
+    // Map features to their respective categories
+    for (const category of featureCategory) {
+      category.feature = features
+        .filter((f) => f.category_id === category.id)
+        .map((f) => ({
+          id: f.feature_id,
+          feature_name: f.feature_name,
+        }));
+    }
+
+    // Assign features to the vehicle
+    vehicle.features = featureCategory;
+
+    // price
     const [pricing] = await db.query(
       "SELECT * FROM vehicle_pricing WHERE vehicle_id = ?",
       [vehicle.id]
@@ -475,9 +555,9 @@ exports.updateVehicle = async (req, res) => {
     if (features && features.length > 0) {
       await db.query(`DELETE FROM vehicle_features WHERE vehicle_id=?`, [id]);
 
-      const featureQuery = `INSERT INTO vehicle_features (vehicle_id, feature_name) VALUES ?`;
-      const featureValues = features.map((feature) => [id, feature]);
-
+      const featureQuery =
+        "INSERT INTO vehicle_features (vehicle_id, 	feature_id) VALUES ?";
+      const featureValues = parsedFeatures.map((feature) => [id, feature.id]);
       await db.query(featureQuery, [featureValues]);
     }
 

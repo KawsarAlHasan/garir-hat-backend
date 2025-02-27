@@ -38,6 +38,7 @@ app.use("/api/v1/price-reason", require("./router/vehiclePricingReasonRoute"));
 app.use("/api/v1/location", require("./router/locationRoute"));
 
 app.use("/api/v1/interest", require("./router/interestedVehicleRouter"));
+app.use("/api/v1/wishlist", require("./router/wishlistRoute"));
 
 // Default Route
 app.get("/", (req, res) => {

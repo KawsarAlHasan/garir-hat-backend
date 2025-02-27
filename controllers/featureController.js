@@ -1,14 +1,9 @@
 const db = require("../config/db");
 
-// get all Feature for Admin
-exports.getAllFeaturesForAdmin = async (req, res) => {
+// get all Feature
+exports.getAllFeature = async (req, res) => {
   try {
-    const [data] = await db.query(`SELECT 
-      f.*,
-      fc.name AS category_name
-      FROM features f
-      LEFT JOIN feature_category fc ON f.category_id
-      `);
+    const [data] = await db.query(`SELECT id, feature_name FROM features`);
 
     if (!data || data.length === 0) {
       return res.status(200).send({
@@ -37,32 +32,43 @@ exports.getAllFeaturesForAdmin = async (req, res) => {
 // get all Feature for Vendor
 exports.getAllFeaturesForVendor = async (req, res) => {
   try {
-    const [data] = await db.query(
-      `SELECT 
-      f.id,
-      f.feature_name,
-      f.category_id,
-      fc.name AS category_name
-      FROM features f
-      LEFT JOIN feature_category fc ON f.category_id
-      WHERE f.status =?
-      `,
-      ["active"]
+    const { status } = req.query;
+
+    const [featureCategory] = await db.execute(
+      `SELECT * FROM feature_category`
     );
 
-    if (!data || data.length === 0) {
-      return res.status(200).send({
-        success: true,
-        message: "No Feature found",
-        data: [],
-      });
+    for (const category of featureCategory) {
+      const categoryID = category.id;
+
+      let query = "SELECT id, feature_name, status FROM features";
+      let queryParams = [];
+
+      let conditions = [];
+
+      if (status === "active") {
+        conditions.push("status = ?");
+        queryParams.push("active");
+      }
+
+      conditions.push("category_id = ?");
+      queryParams.push(categoryID);
+
+      if (conditions.length > 0) {
+        query += " WHERE " + conditions.join(" AND ");
+      }
+
+      query += " ORDER BY feature_name ASC";
+
+      const [feature] = await db.execute(query, queryParams);
+
+      category.feature = feature;
     }
 
     res.status(200).send({
       success: true,
       message: "All Feature",
-      totalFeature: data.length,
-      data: data,
+      data: featureCategory,
     });
   } catch (error) {
     res.status(500).send({

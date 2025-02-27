@@ -1,16 +1,16 @@
 const express = require("express");
 const {
-  getAllFeaturesForAdmin,
   getAllFeaturesForVendor,
   createNewFeature,
   deleteFeature,
   featureStatusUpdate,
   featureUpdate,
+  getAllFeature,
 } = require("../controllers/featureController");
 
 const router = express.Router();
 
-router.get("/all", getAllFeaturesForAdmin);
+router.get("/all", getAllFeature);
 router.get("/", getAllFeaturesForVendor);
 router.post("/create", createNewFeature);
 router.put("/update/:id", featureUpdate);
