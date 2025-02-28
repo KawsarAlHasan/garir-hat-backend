@@ -210,11 +210,27 @@ exports.createNewVehicle = async (req, res) => {
 // get all vehicle with filter Flutter
 exports.getAllVehiclesForFlutter = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sort = "id", ...filters } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      sort = "id",
+      start_price,
+      end_price,
+      ...filters
+    } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let baseQuery = "FROM vehicles WHERE 1=1";
     let params = [];
+
+    if (start_price) {
+      baseQuery += " AND price >= ?";
+      params.push(parseFloat(start_price));
+    }
+    if (end_price) {
+      baseQuery += " AND price <= ?";
+      params.push(parseFloat(end_price));
+    }
 
     Object.keys(filters).forEach((key) => {
       if (filters[key]) {
@@ -239,7 +255,7 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
         .json({ success: false, message: "No vehicles found", data: [] });
     }
 
-    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, body_type, vehicle_condition, division, district, upzila, city, created_at ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
+    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, body_type, vehicle_condition, division, district, upzila, city, trim, average_rating, total_rating, created_at ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
     const vehicleParams = [...params, parseInt(limit), offset];
     const [vehicles] = await db.query(vehicleQuery, vehicleParams);
 
@@ -263,11 +279,27 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
 // get all vehicle with filter Web
 exports.getAllVehicles = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sort = "id", ...filters } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      start_price,
+      end_price,
+      sort = "id",
+      ...filters
+    } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let baseQuery = "FROM vehicles WHERE 1=1";
     let params = [];
+
+    if (start_price) {
+      baseQuery += " AND price >= ?";
+      params.push(parseFloat(start_price));
+    }
+    if (end_price) {
+      baseQuery += " AND price <= ?";
+      params.push(parseFloat(end_price));
+    }
 
     Object.keys(filters).forEach((key) => {
       if (filters[key]) {
@@ -292,7 +324,7 @@ exports.getAllVehicles = async (req, res) => {
         .json({ success: false, message: "No vehicles found", data: [] });
     }
 
-    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
+    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city, trim, average_rating, total_rating ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
     const vehicleParams = [...params, parseInt(limit), offset];
     const [vehicles] = await db.query(vehicleQuery, vehicleParams);
 
@@ -378,6 +410,13 @@ exports.getSingleVehicleWithId = async (req, res) => {
       [vehicle.id]
     );
     vehicle.pricing = pricing.map((f) => f);
+
+    // rating
+    const [rating] = await db.query("SELECT * FROM rating WHERE vehicle_id=?", [
+      id,
+    ]);
+
+    vehicle.ratings = rating;
 
     res.status(200).json({
       success: true,

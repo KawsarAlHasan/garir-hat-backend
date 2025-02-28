@@ -90,7 +90,7 @@ exports.addedAndRemoveWishList = async (req, res) => {
         });
       }
 
-      return res.status(200).json({
+      return res.status(201).json({
         success: true,
         message: "Vehicle added successfully in wishlist",
       });

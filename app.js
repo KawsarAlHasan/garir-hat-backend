@@ -34,11 +34,21 @@ app.use("/api/v1/brand", require("./router/vehicleBrandRoute"));
 app.use("/api/v1/model", require("./router/vehiclesModelRoute"));
 app.use("/api/v1/price-reason", require("./router/vehiclePricingReasonRoute"));
 
+// product rating
+app.use(
+  "/api/v1/partsNameForRating",
+  require("./router/partsNameForRatingRoute")
+);
+app.use("/api/v1/rating", require("./router/ratingRoute"));
+
 // others
 app.use("/api/v1/location", require("./router/locationRoute"));
 
 app.use("/api/v1/interest", require("./router/interestedVehicleRouter"));
 app.use("/api/v1/wishlist", require("./router/wishlistRoute"));
+
+// settings
+app.use("/api/v1/banner", require("./router/bannerRoute"));
 
 // Default Route
 app.get("/", (req, res) => {
