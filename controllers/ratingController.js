@@ -3,19 +3,22 @@ const db = require("../config/db");
 // create rating
 exports.createRating = async (req, res) => {
   try {
-    const { vehicle_id, title, experience, rating } = req.body;
+    const { model_id, title, experience, rating, parts_rating } = req.body;
     const user_id = req.decodedUser.id;
 
-    if (!vehicle_id || !rating) {
+    // const parsedPartsRating = parts_rating ? JSON.parse(parts_rating) : [];
+    const parsedPartsRating = parts_rating ? parts_rating : [];
+
+    if (!model_id || !rating) {
       return res.status(400).send({
         success: false,
-        message: "Please provide vehicle_id & rating required fields",
+        message: "Please provide model_id & rating required fields",
       });
     }
 
     const [result] = await db.query(
-      "INSERT INTO rating (user_id, vehicle_id, title, experience, rating) VALUES (?, ?, ?, ?, ?)",
-      [user_id, vehicle_id, title || "", experience || "", rating]
+      "INSERT INTO rating (user_id, model_id, title, experience, rating) VALUES (?, ?, ?, ?, ?)",
+      [user_id, model_id, title || "", experience || "", rating]
     );
 
     if (result.affectedRows === 0) {
@@ -25,10 +28,21 @@ exports.createRating = async (req, res) => {
       });
     }
 
+    if (Array.isArray(parsedPartsRating) && parsedPartsRating.length > 0) {
+      const partsNameQuery =
+        "INSERT INTO parts_name_rating (rating_id, parts_name_id, rating) VALUES ?";
+      const partsNameValues = parsedPartsRating.map((partName) => [
+        result.insertId,
+        partName.parts_name_id,
+        partName.parts_name_rating,
+      ]);
+      await db.query(partsNameQuery, [partsNameValues]);
+    }
+
     // total and avarage rating
     const [vehicles] = await db.query(
       "SELECT average_rating, total_rating FROM vehicles WHERE id=?",
-      [vehicle_id]
+      [model_id]
     );
 
     const { average_rating, total_rating } = vehicles[0];
@@ -40,7 +54,7 @@ exports.createRating = async (req, res) => {
 
     await db.query(
       `UPDATE vehicles SET average_rating=?, total_rating=? WHERE id=?`,
-      [averageRating, totalRating, vehicle_id]
+      [averageRating, totalRating, model_id]
     );
 
     return res.status(200).json({
@@ -64,7 +78,7 @@ exports.getMyRating = async (req, res) => {
 
     const [data] = await db.query(
       `SELECT 
-          v.id AS vehicle_id,
+          v.id AS model_id,
         v.vehicle_code, 
         v.vendor_id, 
         v.thumbnail_image, 
@@ -80,9 +94,9 @@ exports.getMyRating = async (req, res) => {
         v.district, 
         v.upzila, 
         v.city,
-          r.id AS rating_id, r.user_id, r.vehicle_id, r.title, r.experience, r.rating, r.is_edit, r.created_at, r.updated_at
+          r.id AS rating_id, r.user_id, r.model_id, r.title, r.experience, r.rating, r.is_edit, r.created_at, r.updated_at
          FROM rating r
-         LEFT JOIN vehicles v ON r.vehicle_id = v.id
+         LEFT JOIN vehicles v ON r.model_id = v.id
          WHERE r.user_id=?`,
       [user_id]
     );
@@ -96,7 +110,7 @@ exports.getMyRating = async (req, res) => {
     }
 
     const formattedData = data.map((item) => ({
-      id: item.vehicle_id,
+      id: item.model_id,
       vehicle_code: item.vehicle_code,
       vendor_id: item.vendor_id,
       thumbnail_image: item.thumbnail_image,
@@ -115,7 +129,7 @@ exports.getMyRating = async (req, res) => {
       my_rating: {
         id: item.rating_id,
         user_id: item.user_id,
-        vehicle_id: item.vehicle_id,
+        model_id: item.model_id,
         title: item.title,
         experience: item.experience,
         rating: item.rating,
@@ -144,8 +158,11 @@ exports.getMyRating = async (req, res) => {
 exports.updateRating = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, experience, rating } = req.body;
+    const { title, experience, rating, parts_rating } = req.body;
     const user_id = req.decodedUser.id;
+
+    // const parsedPartsRating = parts_rating ? JSON.parse(parts_rating) : [];
+    const parsedPartsRating = parts_rating ? parts_rating : [];
 
     const [existingRating] = await db.query(
       "SELECT * FROM rating WHERE id=? AND user_id=?",
@@ -161,11 +178,11 @@ exports.updateRating = async (req, res) => {
 
     const oldRating = existingRating[0].rating;
     const newRating = rating ? rating : existingRating[0].rating;
-    const vehicle_id = existingRating[0].vehicle_id;
+    const model_id = existingRating[0].model_id;
 
     const [vehicles] = await db.query(
       "SELECT average_rating, total_rating FROM vehicles WHERE id=?",
-      [vehicle_id]
+      [model_id]
     );
 
     if (!vehicles || vehicles.length === 0) {
@@ -192,9 +209,22 @@ exports.updateRating = async (req, res) => {
       ]
     );
 
+    if (Array.isArray(parsedPartsRating) && parsedPartsRating.length > 0) {
+      await db.query(`DELETE FROM parts_name_rating WHERE rating_id=?`, [id]);
+
+      const partsNameQuery =
+        "INSERT INTO parts_name_rating (rating_id, parts_name_id, rating) VALUES ?";
+      const partsNameValues = parsedPartsRating.map((partName) => [
+        id,
+        partName.parts_name_id,
+        partName.parts_name_rating,
+      ]);
+      await db.query(partsNameQuery, [partsNameValues]);
+    }
+
     await db.query("UPDATE vehicles SET average_rating=? WHERE id=?", [
       averageRating,
-      vehicle_id,
+      model_id,
     ]);
 
     return res.status(200).json({
@@ -232,7 +262,7 @@ exports.deleteRating = async (req, res) => {
     // total and avarage rating
     const [vehicles] = await db.query(
       "SELECT average_rating, total_rating FROM vehicles WHERE id=?",
-      [data[0].vehicle_id]
+      [data[0].model_id]
     );
 
     const { average_rating, total_rating } = vehicles[0];
@@ -244,9 +274,10 @@ exports.deleteRating = async (req, res) => {
 
     await db.query(
       `UPDATE vehicles SET average_rating=?, total_rating=? WHERE id=?`,
-      [averageRating, totalRating, data[0].vehicle_id]
+      [averageRating, totalRating, data[0].model_id]
     );
 
+    await db.query(`DELETE FROM parts_name_rating WHERE rating_id=?`, [id]);
     await db.query(`DELETE FROM rating WHERE id=?`, [id]);
     res.status(200).send({
       success: true,
