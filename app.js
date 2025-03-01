@@ -49,6 +49,7 @@ app.use("/api/v1/wishlist", require("./router/wishlistRoute"));
 
 // settings
 app.use("/api/v1/banner", require("./router/bannerRoute"));
+app.use("/api/v1/settings", require("./router/settingRoute"));
 
 // Default Route
 app.get("/", (req, res) => {

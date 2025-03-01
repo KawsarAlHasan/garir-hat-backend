@@ -88,7 +88,7 @@ exports.getMyRating = async (req, res) => {
     );
 
     if (!data || data.length === 0) {
-      return res.status(200).send({
+      return res.status(400).send({
         success: true,
         message: "No Data found",
         data: [],
