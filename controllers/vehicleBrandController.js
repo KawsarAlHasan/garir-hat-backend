@@ -37,7 +37,7 @@ exports.getAllVehiclesBrandWithModel = async (req, res) => {
       const brandID = brand.id;
 
       let modelQuery =
-        "SELECT id, model_name FROM vehicles_model WHERE brand_id = ?";
+        "SELECT id, model_name, average_rating, total_rating FROM vehicles_model WHERE brand_id = ?";
       let modelParams = [brandID];
 
       if (status === "active") {
@@ -77,7 +77,7 @@ exports.getAllVehiclesBrandWithModel = async (req, res) => {
       const brandID = brand.id;
 
       let modelQuery =
-        "SELECT id, model_name FROM vehicles_model WHERE brand_id = ?";
+        "SELECT id, model_name, average_rating, total_rating FROM vehicles_model WHERE brand_id = ?";
       let modelParams = [brandID];
 
       if (status === "active") {

@@ -123,16 +123,10 @@ exports.createNewVehiclesModel = async (req, res) => {
       });
     }
 
-    const images = req.file;
-    let image = "";
-    if (images && images.path) {
-      image = `https://api.garirhat.com/public/images/${images.filename}`;
-    }
-
     const query =
-      "INSERT INTO vehicles_model (brand_id, model_name, image, status) VALUES (?, ?, ?, ?)";
+      "INSERT INTO vehicles_model (brand_id, model_name, status) VALUES (?, ?, ?)";
 
-    const values = [brand_id, model_name, image, status || "pending"];
+    const values = [brand_id, model_name, status || "pending"];
 
     const [result] = await db.query(query, values);
 
@@ -173,16 +167,10 @@ exports.modelUpdate = async (req, res) => {
       });
     }
 
-    const images = req.file;
-    let image = data[0].image;
-    if (images && images.path) {
-      image = `https://api.garirhat.com/public/images/${images.filename}`;
-    }
-
-    await db.query(
-      `UPDATE vehicles_model SET model_name=?, image=?  WHERE id =?`,
-      [model_name || data[0].model_name, image, modelID]
-    );
+    await db.query(`UPDATE vehicles_model SET model_name=?  WHERE id =?`, [
+      model_name || data[0].model_name,
+      modelID,
+    ]);
 
     res.status(200).send({
       success: true,

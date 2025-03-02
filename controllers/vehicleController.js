@@ -255,7 +255,7 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
         .json({ success: false, message: "No vehicles found", data: [] });
     }
 
-    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, body_type, vehicle_condition, division, district, upzila, city, trim, average_rating, total_rating, created_at ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
+    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, body_type, vehicle_condition, division, district, upzila, city, trim, created_at ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
     const vehicleParams = [...params, parseInt(limit), offset];
     const [vehicles] = await db.query(vehicleQuery, vehicleParams);
 
@@ -324,7 +324,7 @@ exports.getAllVehicles = async (req, res) => {
         .json({ success: false, message: "No vehicles found", data: [] });
     }
 
-    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city, trim, average_rating, total_rating ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
+    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city, trim ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
     const vehicleParams = [...params, parseInt(limit), offset];
     const [vehicles] = await db.query(vehicleQuery, vehicleParams);
 
@@ -357,7 +357,6 @@ exports.getSingleVehicleWithId = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Vehicle not found",
-        data: [],
       });
     }
 
@@ -380,14 +379,14 @@ exports.getSingleVehicleWithId = async (req, res) => {
 
     // Get features for the specific vehicle
     const featureQuery = `
-            SELECT 
-                f.id AS feature_id, 
-                f.feature_name, 
-                f.category_id 
-            FROM vehicle_features vf
-            JOIN features f ON vf.feature_id = f.id
-            WHERE vf.vehicle_id = ?;
-        `;
+              SELECT
+                  f.id AS feature_id,
+                  f.feature_name,
+                  f.category_id
+              FROM vehicle_features vf
+              JOIN features f ON vf.feature_id = f.id
+              WHERE vf.vehicle_id = ?;
+          `;
 
     const [features] = await db.query(featureQuery, [id]);
 
@@ -412,11 +411,28 @@ exports.getSingleVehicleWithId = async (req, res) => {
     vehicle.pricing = pricing.map((f) => f);
 
     // rating
-    const [rating] = await db.query("SELECT * FROM rating WHERE vehicle_id=?", [
-      id,
-    ]);
+    const [model] = await db.query(
+      "SELECT id FROM vehicles_model WHERE model_name=?",
+      [vehicle.model]
+    );
 
-    vehicle.ratings = rating;
+    if (model.length > 0) {
+      const [rating] = await db.query(
+        `
+    SELECT r.*,
+     u.name,
+     u.profile_pic
+    FROM rating r
+    LEFT JOIN users u ON r.user_id = u.id
+    WHERE r.model_id=?
+    `,
+        [model[0].id]
+      );
+
+      vehicle.ratings = rating;
+    } else {
+      vehicle.ratings = [];
+    }
 
     res.status(200).json({
       success: true,

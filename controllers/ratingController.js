@@ -40,12 +40,12 @@ exports.createRating = async (req, res) => {
     }
 
     // total and avarage rating
-    const [vehicles] = await db.query(
-      "SELECT average_rating, total_rating FROM vehicles WHERE id=?",
+    const [vehiclesModel] = await db.query(
+      "SELECT average_rating, total_rating FROM vehicles_model WHERE id=?",
       [model_id]
     );
 
-    const { average_rating, total_rating } = vehicles[0];
+    const { average_rating, total_rating } = vehiclesModel[0];
 
     const score = average_rating * total_rating;
     const totalScore = score + rating;
@@ -53,7 +53,7 @@ exports.createRating = async (req, res) => {
     const averageRating = totalScore / totalRating;
 
     await db.query(
-      `UPDATE vehicles SET average_rating=?, total_rating=? WHERE id=?`,
+      `UPDATE vehicles_model SET average_rating=?, total_rating=? WHERE id=?`,
       [averageRating, totalRating, model_id]
     );
 
@@ -78,25 +78,14 @@ exports.getMyRating = async (req, res) => {
 
     const [data] = await db.query(
       `SELECT 
-          v.id AS model_id,
-        v.vehicle_code, 
-        v.vendor_id, 
-        v.thumbnail_image, 
-        v.price, 
-        v.discount_price, 
-        v.make, 
-        v.model, 
-        v.year_of_manufacture, 
-        v.mileage, 
-        v.fuel_type, 
-        v.transmission, 
-        v.division, 
-        v.district, 
-        v.upzila, 
-        v.city,
+          vm.id AS model_id,
+        vm.brand_id, 
+        vm.model_name, 
+        vm.total_rating, 
+        vm.average_rating, 
           r.id AS rating_id, r.user_id, r.model_id, r.title, r.experience, r.rating, r.is_edit, r.created_at, r.updated_at
          FROM rating r
-         LEFT JOIN vehicles v ON r.model_id = v.id
+         LEFT JOIN vehicles_model vm ON r.model_id = vm.id
          WHERE r.user_id=?`,
       [user_id]
     );
@@ -111,21 +100,11 @@ exports.getMyRating = async (req, res) => {
 
     const formattedData = data.map((item) => ({
       id: item.model_id,
-      vehicle_code: item.vehicle_code,
-      vendor_id: item.vendor_id,
-      thumbnail_image: item.thumbnail_image,
-      price: item.price,
-      discount_price: item.discount_price,
-      make: item.make,
-      model: item.model,
-      year_of_manufacture: item.year_of_manufacture,
-      mileage: item.mileage,
-      fuel_type: item.fuel_type,
-      transmission: item.transmission,
-      division: item.division,
-      district: item.district,
-      upzila: item.upzila,
-      city: item.city,
+      brand_id: item.brand_id,
+      model_name: item.model_name,
+      total_rating: item.total_rating,
+      average_rating: item.average_rating,
+      status: item.status,
       my_rating: {
         id: item.rating_id,
         user_id: item.user_id,
@@ -180,19 +159,19 @@ exports.updateRating = async (req, res) => {
     const newRating = rating ? rating : existingRating[0].rating;
     const model_id = existingRating[0].model_id;
 
-    const [vehicles] = await db.query(
-      "SELECT average_rating, total_rating FROM vehicles WHERE id=?",
+    const [vehiclesModel] = await db.query(
+      "SELECT average_rating, total_rating FROM vehicles_model WHERE id=?",
       [model_id]
     );
 
-    if (!vehicles || vehicles.length === 0) {
+    if (!vehiclesModel || vehiclesModel.length === 0) {
       return res.status(404).send({
         success: false,
         message: "Vehicle not found",
       });
     }
 
-    const { average_rating, total_rating } = vehicles[0];
+    const { average_rating, total_rating } = vehiclesModel[0];
 
     const score = average_rating * total_rating;
     const newTotalScore = score - oldRating + newRating;
@@ -222,7 +201,7 @@ exports.updateRating = async (req, res) => {
       await db.query(partsNameQuery, [partsNameValues]);
     }
 
-    await db.query("UPDATE vehicles SET average_rating=? WHERE id=?", [
+    await db.query("UPDATE vehicles_model SET average_rating=? WHERE id=?", [
       averageRating,
       model_id,
     ]);
@@ -260,12 +239,12 @@ exports.deleteRating = async (req, res) => {
     }
 
     // total and avarage rating
-    const [vehicles] = await db.query(
-      "SELECT average_rating, total_rating FROM vehicles WHERE id=?",
+    const [vehiclesModel] = await db.query(
+      "SELECT average_rating, total_rating FROM vehicles_model WHERE id=?",
       [data[0].model_id]
     );
 
-    const { average_rating, total_rating } = vehicles[0];
+    const { average_rating, total_rating } = vehiclesModel[0];
 
     const score = average_rating * total_rating;
     const totalScore = score - data[0].rating;
@@ -273,7 +252,7 @@ exports.deleteRating = async (req, res) => {
     const averageRating = totalScore / totalRating;
 
     await db.query(
-      `UPDATE vehicles SET average_rating=?, total_rating=? WHERE id=?`,
+      `UPDATE vehicles_model SET average_rating=?, total_rating=? WHERE id=?`,
       [averageRating, totalRating, data[0].model_id]
     );
 
