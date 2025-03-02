@@ -213,9 +213,16 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      sort = "id",
       start_price,
       end_price,
+      start_year_of_manufacture,
+      end_year_of_manufacture,
+      start_mileage,
+      end_mileage,
+      start_discount_price,
+      end_discount_price,
+      sort = "id",
+      order = "ASC",
       ...filters
     } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -223,6 +230,7 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
     let baseQuery = "FROM vehicles WHERE 1=1";
     let params = [];
 
+    // price
     if (start_price) {
       baseQuery += " AND price >= ?";
       params.push(parseFloat(start_price));
@@ -230,6 +238,36 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
     if (end_price) {
       baseQuery += " AND price <= ?";
       params.push(parseFloat(end_price));
+    }
+
+    // year_of_manufacture
+    if (start_year_of_manufacture) {
+      baseQuery += " AND year_of_manufacture >= ?";
+      params.push(parseFloat(start_year_of_manufacture));
+    }
+    if (end_year_of_manufacture) {
+      baseQuery += " AND year_of_manufacture <= ?";
+      params.push(parseFloat(end_year_of_manufacture));
+    }
+
+    // mileage
+    if (start_mileage) {
+      baseQuery += " AND mileage >= ?";
+      params.push(parseFloat(start_mileage));
+    }
+    if (end_mileage) {
+      baseQuery += " AND mileage <= ?";
+      params.push(parseFloat(end_mileage));
+    }
+
+    // mileage
+    if (start_discount_price) {
+      baseQuery += " AND discount_price >= ?";
+      params.push(parseFloat(start_discount_price));
+    }
+    if (end_discount_price) {
+      baseQuery += " AND discount_price <= ?";
+      params.push(parseFloat(end_discount_price));
     }
 
     Object.keys(filters).forEach((key) => {
@@ -245,6 +283,20 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
       }
     });
 
+    // Allowlist (safe fields for sorting)
+    const allowedSortFields = [
+      "id",
+      "price",
+      "make",
+      "model",
+      "year_of_manufacture",
+      "mileage",
+    ];
+    const sortField = allowedSortFields.includes(sort) ? sort : "id";
+
+    // Validate order (ASC or DESC)
+    const orderType = order.toUpperCase() === "DESC" ? "DESC" : "ASC";
+
     // count totaal vehicle
     const countQuery = `SELECT COUNT(*) AS total ${baseQuery}`;
     const [[{ total: totalVehicles }]] = await db.query(countQuery, params);
@@ -255,9 +307,26 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
         .json({ success: false, message: "No vehicles found", data: [] });
     }
 
-    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, body_type, vehicle_condition, division, district, upzila, city, trim, created_at ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
+    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, body_type, vehicle_condition, division, district, upzila, city, trim, created_at ${baseQuery} ORDER BY ${sortField} ${orderType} LIMIT ? OFFSET ?`;
     const vehicleParams = [...params, parseInt(limit), offset];
     const [vehicles] = await db.query(vehicleQuery, vehicleParams);
+
+    for (const singleVehicle of vehicles) {
+      const modelName = singleVehicle.model;
+
+      const [model] = await db.query(
+        "SELECT id, total_rating, average_rating FROM vehicles_model WHERE model_name=?",
+        [modelName]
+      );
+
+      if (model.length > 0) {
+        singleVehicle.model_total_rating = model[0].total_rating;
+        singleVehicle.model_average_rating = model[0].average_rating;
+      } else {
+        singleVehicle.model_total_rating = 0;
+        singleVehicle.model_average_rating = 0;
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -284,7 +353,14 @@ exports.getAllVehicles = async (req, res) => {
       limit = 10,
       start_price,
       end_price,
+      start_year_of_manufacture,
+      end_year_of_manufacture,
+      start_mileage,
+      end_mileage,
+      start_discount_price,
+      end_discount_price,
       sort = "id",
+      order = "ASC",
       ...filters
     } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -292,6 +368,7 @@ exports.getAllVehicles = async (req, res) => {
     let baseQuery = "FROM vehicles WHERE 1=1";
     let params = [];
 
+    // price
     if (start_price) {
       baseQuery += " AND price >= ?";
       params.push(parseFloat(start_price));
@@ -299,6 +376,36 @@ exports.getAllVehicles = async (req, res) => {
     if (end_price) {
       baseQuery += " AND price <= ?";
       params.push(parseFloat(end_price));
+    }
+
+    // year_of_manufacture
+    if (start_year_of_manufacture) {
+      baseQuery += " AND year_of_manufacture >= ?";
+      params.push(parseFloat(start_year_of_manufacture));
+    }
+    if (end_year_of_manufacture) {
+      baseQuery += " AND year_of_manufacture <= ?";
+      params.push(parseFloat(end_year_of_manufacture));
+    }
+
+    // mileage
+    if (start_mileage) {
+      baseQuery += " AND mileage >= ?";
+      params.push(parseFloat(start_mileage));
+    }
+    if (end_mileage) {
+      baseQuery += " AND mileage <= ?";
+      params.push(parseFloat(end_mileage));
+    }
+
+    // mileage
+    if (start_discount_price) {
+      baseQuery += " AND discount_price >= ?";
+      params.push(parseFloat(start_discount_price));
+    }
+    if (end_discount_price) {
+      baseQuery += " AND discount_price <= ?";
+      params.push(parseFloat(end_discount_price));
     }
 
     Object.keys(filters).forEach((key) => {
@@ -314,6 +421,20 @@ exports.getAllVehicles = async (req, res) => {
       }
     });
 
+    // Allowlist (safe fields for sorting)
+    const allowedSortFields = [
+      "id",
+      "price",
+      "make",
+      "model",
+      "year_of_manufacture",
+      "mileage",
+    ];
+    const sortField = allowedSortFields.includes(sort) ? sort : "id";
+
+    // Validate order (ASC or DESC)
+    const orderType = order.toUpperCase() === "DESC" ? "DESC" : "ASC";
+
     // count totaal vehicle
     const countQuery = `SELECT COUNT(*) AS total ${baseQuery}`;
     const [[{ total: totalVehicles }]] = await db.query(countQuery, params);
@@ -324,7 +445,8 @@ exports.getAllVehicles = async (req, res) => {
         .json({ success: false, message: "No vehicles found", data: [] });
     }
 
-    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city, trim ${baseQuery} ORDER BY ${sort} LIMIT ? OFFSET ?`;
+    // Fetch vehicles with sorting
+    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city, trim ${baseQuery} ORDER BY ${sortField} ${orderType} LIMIT ? OFFSET ?`;
     const vehicleParams = [...params, parseInt(limit), offset];
     const [vehicles] = await db.query(vehicleQuery, vehicleParams);
 
@@ -412,7 +534,7 @@ exports.getSingleVehicleWithId = async (req, res) => {
 
     // rating
     const [model] = await db.query(
-      "SELECT id FROM vehicles_model WHERE model_name=?",
+      "SELECT id, total_rating, average_rating FROM vehicles_model WHERE model_name=?",
       [vehicle.model]
     );
 
@@ -428,9 +550,12 @@ exports.getSingleVehicleWithId = async (req, res) => {
     `,
         [model[0].id]
       );
-
+      vehicle.model_total_rating = model[0].total_rating;
+      vehicle.model_average_rating = model[0].average_rating;
       vehicle.ratings = rating;
     } else {
+      vehicle.model_total_rating = 0;
+      vehicle.model_average_rating = 0;
       vehicle.ratings = [];
     }
 

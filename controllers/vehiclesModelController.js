@@ -1,5 +1,76 @@
 const db = require("../config/db");
 
+// get All model
+exports.getAllModel = async (req, res) => {
+  try {
+    const [data] = await db.query(
+      `SELECT m.*,
+      b.id AS brand_id,
+      b.image AS brand_image,
+      b.brand_name
+      FROM vehicles_model m
+      LEFT JOIN vehicles_brand b ON m.brand_id = b.id`
+    );
+
+    if (!data || data.length === 0) {
+      return res.status(200).send({
+        success: true,
+        message: "No Vehicles Model found",
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "All Vehicles Model",
+      totalModel: data.length,
+      data: data,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Error in Get All Vehicles Model",
+      error: error.message,
+    });
+  }
+};
+
+// get single model
+exports.getSingleModel = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const [data] = await db.query(
+      `SELECT m.*,
+      b.id AS brand_id,
+      b.image AS brand_image,
+      b.brand_name
+      FROM vehicles_model m
+      LEFT JOIN vehicles_brand b ON m.brand_id = b.id
+      WHERE m.id=?`,
+      [id]
+    );
+
+    if (!data || data.length === 0) {
+      return res.status(200).send({
+        success: true,
+        message: "No Vehicles Model found",
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "Single Vehicles Model",
+      data: data[0],
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Error in Get Single Vehicles Model",
+      error: error.message,
+    });
+  }
+};
+
 // get all vehicles_model for Admin
 exports.getAllVehiclesModelForAdmin = async (req, res) => {
   try {
