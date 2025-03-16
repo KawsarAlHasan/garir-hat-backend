@@ -47,9 +47,9 @@ exports.createRating = async (req, res) => {
 
     const { average_rating, total_rating } = vehiclesModel[0];
 
-    const score = average_rating * total_rating;
-    const totalScore = score + rating;
-    const totalRating = total_rating + 1;
+    const score = parseFloat(average_rating) * parseFloat(total_rating);
+    const totalScore = score + parseFloat(rating);
+    const totalRating = parseFloat(total_rating) + 1;
     const averageRating = totalScore / totalRating;
 
     await db.query(

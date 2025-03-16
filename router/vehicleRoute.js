@@ -6,6 +6,7 @@ const {
   getAllVehicles,
   getSingleVehicleWithId,
   getAllVehiclesForFlutter,
+  updateVehicleStatus,
 } = require("../controllers/vehicleController");
 
 const verifyVendor = require("../middleware/verifyVendor");
@@ -24,6 +25,9 @@ router.post(
 router.get("/all", getAllVehiclesForFlutter);
 router.get("/web", getAllVehicles);
 router.get("/:id", getSingleVehicleWithId);
+
+router.put("/status/:id", verifyVendor, updateVehicleStatus);
+
 router.delete("/delete/:id", deleteVehicle);
 
 module.exports = router;

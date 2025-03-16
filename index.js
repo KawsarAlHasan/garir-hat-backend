@@ -2,7 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const app = require("./app");
+const { app, server } = require("./app");
 const mySqlPool = require("./config/db");
 dotenv.config();
 
@@ -28,6 +28,6 @@ mySqlPool
 
 // Server Start
 const port = process.env.PORT || 2001;
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Garir Hat server is running on port ${port}`);
 });

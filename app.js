@@ -3,8 +3,12 @@ const app = express();
 const path = require("path");
 const cors = require("cors");
 const bodyParser = require("body-parser");
+const socket = require("./config/socket");
+const http = require("http");
 
-// updated code testing on github
+const server = http.createServer(app);
+
+const io = socket.init(server);
 
 app.use(express.json());
 
@@ -41,6 +45,9 @@ app.use(
 );
 app.use("/api/v1/rating", require("./router/ratingRoute"));
 
+// message
+app.use("/api/v1/message", require("./router/messagesRoute"));
+
 // others
 app.use("/api/v1/location", require("./router/locationRoute"));
 
@@ -63,4 +70,4 @@ app.use("*", (req, res, next) => {
   });
 });
 
-module.exports = app;
+module.exports = { app, server };

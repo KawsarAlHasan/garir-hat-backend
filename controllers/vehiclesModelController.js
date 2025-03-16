@@ -9,7 +9,9 @@ exports.getAllModel = async (req, res) => {
       b.image AS brand_image,
       b.brand_name
       FROM vehicles_model m
-      LEFT JOIN vehicles_brand b ON m.brand_id = b.id`
+      LEFT JOIN vehicles_brand b ON m.brand_id = b.id
+      ORDER BY RAND() 
+      LIMIT 15`
     );
 
     if (!data || data.length === 0) {

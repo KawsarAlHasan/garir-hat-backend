@@ -453,9 +453,12 @@ exports.getAllVehicles = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "All vehicles",
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(totalVehicles / parseInt(limit)),
-      totalVehicles,
+      pagination: {
+        total: totalVehicles,
+        page: parseInt(page),
+        limit: limit,
+        totalPages: Math.ceil(totalVehicles / parseInt(limit)),
+      },
       data: vehicles,
     });
   } catch (error) {
@@ -744,6 +747,52 @@ exports.updateVehicle = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Vehicle Updated successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// update vehicle status
+exports.updateVehicleStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // const vendor_id = req.decodedVendor.id;
+
+    const { status } = req.body;
+
+    // const [preVehicles] = await db.query(
+    //   "SELECT * FROM vehicles WHERE id = ? AND vendor_id=?",
+    //   [id, vendor_id]
+    // );
+    const [preVehicles] = await db.query(
+      "SELECT * FROM vehicles WHERE id = ?",
+      [id]
+    );
+
+    if (preVehicles.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+        data: [],
+      });
+    }
+
+    let vehicle = preVehicles[0];
+
+    // Update the vehicles data in the database
+    await db.query(`UPDATE vehicles SET status=? WHERE id = ?`, [
+      status || vehicle.status,
+      id,
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Vehicle Status Updated successfully",
     });
   } catch (error) {
     res.status(500).json({
