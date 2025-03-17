@@ -1,127 +1,4 @@
-const firebaseAdmin = require("../config/firebase");
-const firebaseDatabase = firebaseAdmin.database();
-
 const db = require("../config/db");
-const io = require("../config/socket");
-
-exports.sendMessage2 = async (req, res) => {
-  try {
-    const { sender_id, receiver_id, vehicle_id, message } = req.body;
-
-    if (!sender_id || !receiver_id || !vehicle_id || !message) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
-    }
-
-    // মেসেজ MySQL ডাটাবেজে সংরক্ষণ করা
-    const [result] = await db.query(
-      "INSERT INTO messages (sender_id, receiver_id, vehicle_id, message) VALUES (?, ?, ?, ?)",
-      [sender_id, receiver_id, vehicle_id, message]
-    );
-
-    const messageId = result.insertId;
-
-    const newMessage = {
-      id: messageId,
-      sender_id,
-      receiver_id,
-      message,
-      timestamp: new Date().toISOString(),
-    };
-
-    // Socket.io ব্যবহার করে রিসিভারকে মেসেজ পাঠানো
-    io.getIo().to(receiver_id).emit("newMessage", newMessage);
-
-    res.status(201).json({
-      success: true,
-      message: "Message sent",
-      data: newMessage,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
-
-exports.getMessage2 = async (req, res) => {
-  try {
-    const { sender_id, receiver_id } = req.query;
-    if (!sender_id || !receiver_id) {
-      return res.status(400).json({
-        success: false,
-        message: "Sender ID and Receiver ID required",
-      });
-    }
-
-    // ডাটাবেজ থেকে মেসেজ ফেচ করা
-    const [messages] = await db.query(
-      "SELECT * FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY created_at ASC LIMIT 10",
-      [sender_id, receiver_id, receiver_id, sender_id]
-    );
-
-    res.status(200).json({
-      success: true,
-      messages,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
-
-exports.sendMessage = async (req, res) => {
-  try {
-    const { sender_id, receiver_id, vehicle_id, message } = req.body;
-
-    if (!sender_id || !receiver_id || !vehicle_id || !message) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
-    }
-
-    // Store message in MySQL
-    const [result] = await db.query(
-      "INSERT INTO messages (sender_id, receiver_id, vehicle_id, message) VALUES (?, ?, ?, ?)",
-      [sender_id, receiver_id, vehicle_id, message]
-    );
-
-    const messageId = result.insertId;
-
-    // Firebase message update (Real-time update)
-    const newMessage = {
-      id: messageId,
-      sender_id,
-      receiver_id,
-      message,
-      timestamp: new Date().toISOString(),
-    };
-
-    const chatPath = `chats/${sender_id}_${receiver_id}/messages`;
-
-    await firebaseDatabase.ref(chatPath).push(newMessage);
-
-    res.status(201).json({
-      success: true,
-      message: "Message sent",
-      data: newMessage,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
 
 exports.getMessage = async (req, res) => {
   try {
@@ -163,7 +40,7 @@ exports.usersListForMessage = async (req, res) => {
        FROM messages m
        LEFT JOIN vehicles v ON m.vehicle_id = v.id
        WHERE m.receiver_id = ?
-       ORDER BY m.id DESC`,
+       ORDER BY m.created_at DESC`,
       [receiver_id]
     );
 
@@ -243,36 +120,73 @@ exports.usersListForMessage = async (req, res) => {
   }
 };
 
-exports.isUserOnline = async (req, res) => {
+exports.singleUserMessage = async (req, res) => {
   try {
-    const { sender_id } = req.params;
+    const { sender_id, receiver_id } = req.query;
 
     const uID = sender_id.slice(1);
     const type = sender_id.charAt(0);
 
+    let userInfo = null;
+    let vehicles = [];
+
     if (type === "u") {
+      // Fetch user details
       const [user] = await db.execute("SELECT * FROM users WHERE id = ?", [
         uID,
       ]);
+      if (user.length > 0) {
+        userInfo = user[0];
 
-      res.status(200).json({
-        success: true,
-        message: "Sender user & vendor details retrieved",
-        type: "user",
-        data: user,
-      });
+        // Fetch user's vehicles from messages table
+        const [userVehicles] = await db.execute(
+          `SELECT DISTINCT v.id, v.make, v.model, v.year_of_manufacture, v.vehicle_code, 
+            v.thumbnail_image, v.trim 
+           FROM messages m
+           LEFT JOIN vehicles v ON m.vehicle_id = v.id
+           WHERE m.sender_id = ? AND m.receiver_id = ?
+           ORDER BY m.id DESC`,
+          [sender_id, receiver_id]
+        );
+
+        vehicles = userVehicles;
+      }
     } else if (type === "v") {
+      // Fetch vendor details
       const [vendor] = await db.execute("SELECT * FROM vendors WHERE id = ?", [
         uID,
       ]);
+      if (vendor.length > 0) {
+        userInfo = vendor[0];
 
-      res.status(200).json({
-        success: true,
-        message: "Sender user & vendor details retrieved",
-        type: "vendor",
-        data: vendor,
+        // Fetch vendor's vehicles from messages table
+        const [vendorVehicles] = await db.execute(
+          `SELECT DISTINCT v.id, v.make, v.model, v.year_of_manufacture, v.vehicle_code, 
+            v.thumbnail_image, v.trim 
+           FROM messages m
+           LEFT JOIN vehicles v ON m.vehicle_id = v.id
+           WHERE m.sender_id = ? AND m.receiver_id = ?
+           ORDER BY m.id DESC`,
+          [sender_id, receiver_id]
+        );
+
+        vehicles = vendorVehicles;
+      }
+    }
+
+    if (!userInfo) {
+      return res.status(404).json({
+        success: false,
+        message: "User or Vendor not found",
       });
     }
+
+    res.status(200).json({
+      success: true,
+      message: "Sender user/vendor and associated vehicle details retrieved",
+      type: type === "u" ? "user" : "vendor",
+      data: { ...userInfo, vehicles },
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -281,3 +195,4 @@ exports.isUserOnline = async (req, res) => {
     });
   }
 };
+// AllOneAutos@2024
