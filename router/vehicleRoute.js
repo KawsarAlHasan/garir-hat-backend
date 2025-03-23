@@ -7,6 +7,7 @@ const {
   getSingleVehicleWithId,
   getAllVehiclesForFlutter,
   updateVehicleStatus,
+  getAllMakeNameForSingleVendor,
 } = require("../controllers/vehicleController");
 
 const verifyVendor = require("../middleware/verifyVendor");
@@ -24,6 +25,8 @@ router.post(
 );
 router.get("/all", getAllVehiclesForFlutter);
 router.get("/web", getAllVehicles);
+router.get("/vendor/:vendorid", getAllMakeNameForSingleVendor);
+
 router.get("/:id", getSingleVehicleWithId);
 
 router.put("/status/:id", verifyVendor, updateVehicleStatus);

@@ -50,9 +50,12 @@ app.use("/api/v1/message", require("./router/messagesRoute"));
 
 // others
 app.use("/api/v1/location", require("./router/locationRoute"));
+app.use("/api/v1/video", require("./router/videoRouter"));
 
 app.use("/api/v1/interest", require("./router/interestedVehicleRouter"));
 app.use("/api/v1/wishlist", require("./router/wishlistRoute"));
+
+app.use("/api/v1/socail-media", require("./router/socailMediaPostRoute"));
 
 // settings
 app.use("/api/v1/banner", require("./router/bannerRoute"));

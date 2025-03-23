@@ -34,21 +34,32 @@ exports.usersListForMessage = async (req, res) => {
   try {
     const { receiver_id } = req.params;
 
-    // Fetch sender_id & vehicle_id with vehicle details
+    // Fetch all unique conversations where the user is either sender or receiver
     const [messages] = await db.execute(
-      `SELECT DISTINCT m.sender_id, m.vehicle_id, v.make, v.model, v.vehicle_code, v.thumbnail_image, v.trim, v.year_of_manufacture
+      `SELECT m.sender_id, m.receiver_id, m.vehicle_id, v.make, v.model, 
+              v.vehicle_code, v.thumbnail_image, v.trim, v.year_of_manufacture, 
+              m.created_at
        FROM messages m
        LEFT JOIN vehicles v ON m.vehicle_id = v.id
-       WHERE m.receiver_id = ?
+       WHERE m.id IN (
+           SELECT MAX(id) FROM messages 
+           WHERE sender_id = ? OR receiver_id = ? 
+           GROUP BY sender_id, receiver_id
+       )
        ORDER BY m.created_at DESC`,
-      [receiver_id]
+      [receiver_id, receiver_id]
     );
 
     const usersMap = {};
     const vendorsMap = {};
+    const senderIds = new Set();
 
     messages.forEach((row) => {
       const senderId = row.sender_id;
+      const receiverId = row.receiver_id;
+      const participantId = senderId === receiver_id ? receiverId : senderId; // যাকে মেসেজ পাঠানো হয়েছে বা যিনি পাঠিয়েছেন
+      senderIds.add(participantId);
+
       const vehicle = row.vehicle_id
         ? {
             id: row.vehicle_id,
@@ -61,18 +72,52 @@ exports.usersListForMessage = async (req, res) => {
           }
         : null;
 
-      if (senderId.startsWith("u")) {
-        const userId = senderId.replace("u", "");
+      if (participantId.startsWith("u")) {
+        const userId = participantId.replace("u", "");
         if (!usersMap[userId]) {
-          usersMap[userId] = { id: userId, vehicles: [] };
+          usersMap[userId] = {
+            id: userId,
+            vehicles: [],
+            unread_count: 0,
+            last_message_time: row.created_at,
+          };
         }
         if (vehicle) usersMap[userId].vehicles.push(vehicle);
-      } else if (senderId.startsWith("v")) {
-        const vendorId = senderId.replace("v", "");
+      } else if (participantId.startsWith("v")) {
+        const vendorId = participantId.replace("v", "");
         if (!vendorsMap[vendorId]) {
-          vendorsMap[vendorId] = { id: vendorId, vehicles: [] };
+          vendorsMap[vendorId] = {
+            id: vendorId,
+            vehicles: [],
+            unread_count: 0,
+            last_message_time: row.created_at,
+          };
         }
         if (vehicle) vendorsMap[vendorId].vehicles.push(vehicle);
+      }
+    });
+
+    // Fetch unread message count for each participant
+    const unreadCounts = await db.execute(
+      `SELECT sender_id, COUNT(*) as unread_count
+       FROM messages
+       WHERE receiver_id = ? AND is_read = 0
+       GROUP BY sender_id`,
+      [receiver_id]
+    );
+
+    // Map unread counts to users/vendors
+    unreadCounts[0].forEach(({ sender_id, unread_count }) => {
+      if (sender_id.startsWith("u")) {
+        const userId = sender_id.replace("u", "");
+        if (usersMap[userId]) {
+          usersMap[userId].unread_count = unread_count;
+        }
+      } else if (sender_id.startsWith("v")) {
+        const vendorId = sender_id.replace("v", "");
+        if (vendorsMap[vendorId]) {
+          vendorsMap[vendorId].unread_count = unread_count;
+        }
       }
     });
 
@@ -83,7 +128,12 @@ exports.usersListForMessage = async (req, res) => {
         [id]
       );
       return user.length > 0
-        ? { ...user[0], vehicles: usersMap[id].vehicles }
+        ? {
+            ...user[0],
+            unread_count: usersMap[id].unread_count,
+            vehicles: usersMap[id].vehicles,
+            last_message_time: usersMap[id].last_message_time,
+          }
         : null;
     });
 
@@ -94,7 +144,12 @@ exports.usersListForMessage = async (req, res) => {
         [id]
       );
       return vendor.length > 0
-        ? { ...vendor[0], vehicles: vendorsMap[id].vehicles }
+        ? {
+            ...vendor[0],
+            unread_count: vendorsMap[id].unread_count,
+            vehicles: vendorsMap[id].vehicles,
+            last_message_time: vendorsMap[id].last_message_time,
+          }
         : null;
     });
 
@@ -105,11 +160,19 @@ exports.usersListForMessage = async (req, res) => {
     const filteredUsers = usersInfo.filter((user) => user !== null);
     const filteredVendors = vendorsInfo.filter((vendor) => vendor !== null);
 
+    // Final sorting based on last message time (latest first)
+    const sortedUsers = filteredUsers.sort(
+      (a, b) => new Date(b.last_message_time) - new Date(a.last_message_time)
+    );
+    const sortedVendors = filteredVendors.sort(
+      (a, b) => new Date(b.last_message_time) - new Date(a.last_message_time)
+    );
+
     res.status(200).json({
       success: true,
       message: "Sender user, vendor, and associated vehicle details retrieved",
-      users: filteredUsers,
-      vendors: filteredVendors,
+      users: sortedUsers,
+      vendors: sortedVendors,
     });
   } catch (error) {
     res.status(500).json({
@@ -195,4 +258,28 @@ exports.singleUserMessage = async (req, res) => {
     });
   }
 };
-// AllOneAutos@2024
+
+exports.messageRead = async (req, res) => {
+  try {
+    // const sender_id = "u2"; // zar kach theke asche
+    // const receiver_id = "v3"; // amar
+
+    const { sender_id, receiver_id } = req.body;
+
+    await db.query(
+      `UPDATE messages SET is_read=?  WHERE (sender_id =? AND receiver_id =?) AND is_read=?`,
+      [1, sender_id, receiver_id, 0]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Message Read Successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};

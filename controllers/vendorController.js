@@ -305,6 +305,36 @@ exports.updateVendor = async (req, res) => {
   }
 };
 
+// update vendor banner
+exports.updateVendorBanner = async (req, res) => {
+  try {
+    const vendorPreData = req.decodedVendor;
+
+    const images = req.file;
+    let banner = vendorPreData?.banner;
+    if (images && images.path) {
+      banner = `https://api.garirhat.com/public/images/${images.filename}`;
+    }
+
+    // Update the vendor data in the database
+    const [data] = await db.query(`UPDATE vendors SET banner=? WHERE id = ?`, [
+      banner,
+      vendorPreData.id,
+    ]);
+
+    res.status(200).send({
+      success: true,
+      message: "Vendor banner updated successfully",
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Error in updating Vendor banner",
+      error: error.message,
+    });
+  }
+};
+
 // update nid card for vendor
 exports.updateNIDCardVendor = async (req, res) => {
   try {
@@ -327,6 +357,7 @@ exports.updateNIDCardVendor = async (req, res) => {
     }
 
     const images = req.files;
+
     let nid_card_front = vendorPreData?.nid_card_front;
     let nid_card_back = vendorPreData?.nid_card_back;
 

@@ -9,6 +9,7 @@ const {
   updateVendor,
   vendorVerifyStatusUpdate,
   updateNIDCardVendor,
+  updateVendorBanner,
 } = require("../controllers/vendorController");
 const verifyVendor = require("../middleware/verifyVendor");
 
@@ -25,6 +26,12 @@ router.put(
   uploadImage.single("profile_picture"),
   verifyVendor,
   updateVendor
+);
+router.put(
+  "/banner",
+  uploadImage.single("banner"),
+  verifyVendor,
+  updateVendorBanner
 );
 router.put(
   "/nid",

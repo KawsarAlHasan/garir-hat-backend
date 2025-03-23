@@ -36,9 +36,12 @@ exports.createNewVehicle = async (req, res) => {
       upzila,
       city,
       discount_price,
+      is_post_fb_req,
       features,
       prices,
     } = req.body;
+
+    const postFacebook = is_post_fb_req == "true" ? 1 : 0;
 
     const yearOfManufacture = new Date(year_of_manufacture).getUTCFullYear();
 
@@ -102,9 +105,9 @@ exports.createNewVehicle = async (req, res) => {
         transmission, body_type, seating_capacity, doors, engine_capacity_cc,
         fuel_efficiency_kmpl, drive_type, color, 	interior_color, description, vehicle_condition,
         registration_number, registration_year, rtn, power, cabin_size, trunk_size,
-        top_speed, vin_number, trim, division, district, upzila, city
+        top_speed, vin_number, trim, division, district, upzila, city, is_post_fb_req
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     let totalPrice = parsedPrices.reduce(
@@ -147,6 +150,7 @@ exports.createNewVehicle = async (req, res) => {
       district || "",
       upzila || "",
       city || "",
+      postFacebook,
     ];
 
     const [result] = await db.query(query, values);
@@ -345,6 +349,29 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
   }
 };
 
+// get all vehicle brand name
+exports.getAllMakeNameForSingleVendor = async (req, res) => {
+  try {
+    const { vendorid } = req.params;
+    const [vehicles] = await db.execute(
+      "SELECT make FROM vehicles WHERE vendor_id=? GROUP BY make",
+      [vendorid]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "All vehicles",
+      data: vehicles,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error in Get All Vehicles",
+      error: error.message,
+    });
+  }
+};
+
 // get all vehicle with filter Web
 exports.getAllVehicles = async (req, res) => {
   try {
@@ -440,9 +467,11 @@ exports.getAllVehicles = async (req, res) => {
     const [[{ total: totalVehicles }]] = await db.query(countQuery, params);
 
     if (totalVehicles === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "No vehicles found", data: [] });
+      return res.status(201).json({
+        success: false,
+        message: "No vehicles found",
+        data: [],
+      });
     }
 
     // Fetch vehicles with sorting
