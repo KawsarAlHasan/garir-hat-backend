@@ -1,4 +1,4 @@
-const db = require("../config/db");
+const db = require("../../config/db");
 const fs = require("fs");
 const path = require("path");
 
@@ -48,7 +48,7 @@ exports.createNewVehicle = async (req, res) => {
     const parsedFeatures = features ? JSON.parse(features) : [];
     const parsedPrices = prices ? JSON.parse(prices) : [];
 
-    const vendor_id = req.decodedVendor.id;
+    const busn_id = req.decodedVendor.busn_id;
 
     // Ensure all required fields are present
     if (!make || !model || !prices) {
@@ -101,7 +101,7 @@ exports.createNewVehicle = async (req, res) => {
 
     const query = `
       INSERT INTO vehicles (
-        vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type,
+        vehicle_code, busn_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type,
         transmission, body_type, seating_capacity, doors, engine_capacity_cc,
         fuel_efficiency_kmpl, drive_type, color, 	interior_color, description, vehicle_condition,
         registration_number, registration_year, rtn, power, cabin_size, trunk_size,
@@ -117,7 +117,7 @@ exports.createNewVehicle = async (req, res) => {
 
     const values = [
       vehicle_code,
-      vendor_id,
+      busn_id,
       thumbnailUrl,
       totalPrice,
       discount_price || 0,
@@ -311,7 +311,7 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
         .json({ success: false, message: "No vehicles found", data: [] });
     }
 
-    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, body_type, vehicle_condition, division, district, upzila, city, trim, created_at ${baseQuery} ORDER BY ${sortField} ${orderType} LIMIT ? OFFSET ?`;
+    const vehicleQuery = `SELECT id, vehicle_code, busn_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, body_type, vehicle_condition, division, district, upzila, city, trim, created_at ${baseQuery} ORDER BY ${sortField} ${orderType} LIMIT ? OFFSET ?`;
     const vehicleParams = [...params, parseInt(limit), offset];
     const [vehicles] = await db.query(vehicleQuery, vehicleParams);
 
@@ -352,10 +352,10 @@ exports.getAllVehiclesForFlutter = async (req, res) => {
 // get all vehicle brand name
 exports.getAllMakeNameForSingleVendor = async (req, res) => {
   try {
-    const { vendorid } = req.params;
+    const { busn_id } = req.params;
     const [vehicles] = await db.execute(
-      "SELECT make FROM vehicles WHERE vendor_id=? GROUP BY make",
-      [vendorid]
+      "SELECT make FROM vehicles WHERE busn_id=? GROUP BY make",
+      [busn_id]
     );
 
     res.status(200).json({
@@ -475,7 +475,7 @@ exports.getAllVehicles = async (req, res) => {
     }
 
     // Fetch vehicles with sorting
-    const vehicleQuery = `SELECT id, vehicle_code, vendor_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city, trim ${baseQuery} ORDER BY ${sortField} ${orderType} LIMIT ? OFFSET ?`;
+    const vehicleQuery = `SELECT id, vehicle_code, busn_id, thumbnail_image, price, discount_price, make, model, year_of_manufacture, mileage, fuel_type, transmission, division, district, upzila, city, trim ${baseQuery} ORDER BY ${sortField} ${orderType} LIMIT ? OFFSET ?`;
     const vehicleParams = [...params, parseInt(limit), offset];
     const [vehicles] = await db.query(vehicleQuery, vehicleParams);
 
@@ -609,7 +609,7 @@ exports.getSingleVehicleWithId = async (req, res) => {
 exports.updateVehicle = async (req, res) => {
   try {
     const { id } = req.params;
-    const vendor_id = req.decodedVendor.id;
+    const busn_id = req.decodedVendor.busn_id;
 
     const {
       make,
@@ -647,8 +647,8 @@ exports.updateVehicle = async (req, res) => {
     } = req.body;
 
     const [preVehicles] = await db.query(
-      "SELECT * FROM vehicles WHERE id = ? AND vendor_id=?",
-      [id, vendor_id]
+      "SELECT * FROM vehicles WHERE id = ? AND busn_id=?",
+      [id, busn_id]
     );
 
     if (preVehicles.length === 0) {

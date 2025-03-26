@@ -1,4 +1,6 @@
 const express = require("express");
+
+const verifyVendor = require("../../middleware/verifyVendor");
 const {
   getAllVehiclesModelForAdmin,
   getAllModelsForVendor,
@@ -8,9 +10,7 @@ const {
   modelUpdate,
   getSingleModel,
   getAllModel,
-} = require("../controllers/vehiclesModelController");
-
-const verifyVendor = require("../middleware/verifyVendor");
+} = require("../../controllers/vehicles/vehiclesModelController");
 
 const router = express.Router();
 

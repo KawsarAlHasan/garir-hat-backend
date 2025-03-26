@@ -1,16 +1,16 @@
 const express = require("express");
-const uploadImage = require("../middleware/fileUploader");
+const uploadImage = require("../../middleware/fileUploader");
+
+const verifyVendor = require("../../middleware/verifyVendor");
 const {
+  getAllVehiclesBrandWithModel,
   getAllVehiclesBrandForAdmin,
   createNewVehiclesBrand,
   brandUpdate,
   getAllBrandsForVendor,
   brandStatusUpdate,
   deleteBrand,
-  getAllVehiclesBrandWithModel,
-} = require("../controllers/vehicleBrandController");
-
-const verifyVendor = require("../middleware/verifyVendor");
+} = require("../../controllers/vehicles/vehicleBrandController");
 
 const router = express.Router();
 

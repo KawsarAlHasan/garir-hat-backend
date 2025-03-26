@@ -1,4 +1,4 @@
-const db = require("../config/db");
+const db = require("../../config/db");
 
 // get all vehicles_brand with model
 exports.getAllVehiclesBrandWithModel = async (req, res) => {

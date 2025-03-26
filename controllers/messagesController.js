@@ -57,7 +57,7 @@ exports.usersListForMessage = async (req, res) => {
     messages.forEach((row) => {
       const senderId = row.sender_id;
       const receiverId = row.receiver_id;
-      const participantId = senderId === receiver_id ? receiverId : senderId; // যাকে মেসেজ পাঠানো হয়েছে বা যিনি পাঠিয়েছেন
+      const participantId = senderId === receiver_id ? receiverId : senderId;
       senderIds.add(participantId);
 
       const vehicle = row.vehicle_id
@@ -216,9 +216,10 @@ exports.singleUserMessage = async (req, res) => {
       }
     } else if (type === "v") {
       // Fetch vendor details
-      const [vendor] = await db.execute("SELECT * FROM vendors WHERE id = ?", [
-        uID,
-      ]);
+      const [vendor] = await db.execute(
+        "SELECT * FROM vendor_busn_info WHERE busn_id = ?",
+        [sender_id]
+      );
       if (vendor.length > 0) {
         userInfo = vendor[0];
 
@@ -261,9 +262,6 @@ exports.singleUserMessage = async (req, res) => {
 
 exports.messageRead = async (req, res) => {
   try {
-    // const sender_id = "u2"; // zar kach theke asche
-    // const receiver_id = "v3"; // amar
-
     const { sender_id, receiver_id } = req.body;
 
     await db.query(

@@ -1,4 +1,4 @@
-const db = require("../config/db");
+const db = require("../../config/db");
 
 // get All model
 exports.getAllModel = async (req, res) => {

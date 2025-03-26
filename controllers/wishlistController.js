@@ -10,7 +10,7 @@ exports.getMyWishList = async (req, res) => {
         w.id AS wishlist_id, 
         v.id AS vehicle_id, 
         v.vehicle_code, 
-        v.vendor_id, 
+        v.busn_id, 
         v.thumbnail_image, 
         v.price, 
         v.discount_price, 

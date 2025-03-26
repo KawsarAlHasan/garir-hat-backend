@@ -1,4 +1,8 @@
 const express = require("express");
+
+const verifyVendor = require("../../middleware/verifyVendor");
+
+const uploadImage = require("../../middleware/fileUploader");
 const {
   getAllVendors,
   verifyVendorToken,
@@ -10,17 +14,16 @@ const {
   vendorVerifyStatusUpdate,
   updateNIDCardVendor,
   updateVendorBanner,
-} = require("../controllers/vendorController");
-const verifyVendor = require("../middleware/verifyVendor");
-
-const uploadImage = require("../middleware/fileUploader");
+  getMyProfileVendor,
+} = require("../../controllers/vendors/vendorController");
 
 const router = express.Router();
 
 router.get("/all", getAllVendors);
 router.get("/me", verifyVendor, getMeVendor);
+router.get("/my-profile", verifyVendor, getMyProfileVendor);
 router.post("/verify-token", verifyVendorToken);
-router.get("/:id", getSingleVendor);
+router.get("/:busn_id", getSingleVendor);
 router.put(
   "/update",
   uploadImage.single("profile_picture"),

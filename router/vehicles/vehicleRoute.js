@@ -1,5 +1,6 @@
 const express = require("express");
-const uploadImage = require("../middleware/fileUploader");
+const uploadImage = require("../../middleware/fileUploader");
+const verifyVendor = require("../../middleware/verifyVendor");
 const {
   createNewVehicle,
   deleteVehicle,
@@ -8,9 +9,7 @@ const {
   getAllVehiclesForFlutter,
   updateVehicleStatus,
   getAllMakeNameForSingleVendor,
-} = require("../controllers/vehicleController");
-
-const verifyVendor = require("../middleware/verifyVendor");
+} = require("../../controllers/vehicles/vehicleController");
 
 const router = express.Router();
 
@@ -25,7 +24,7 @@ router.post(
 );
 router.get("/all", getAllVehiclesForFlutter);
 router.get("/web", getAllVehicles);
-router.get("/vendor/:vendorid", getAllMakeNameForSingleVendor);
+router.get("/vendor/:busn_id", getAllMakeNameForSingleVendor);
 
 router.get("/:id", getSingleVehicleWithId);
 

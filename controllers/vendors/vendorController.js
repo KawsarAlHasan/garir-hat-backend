@@ -1,8 +1,8 @@
-const db = require("../config/db");
-const { generateVendorToken } = require("../config/vendorToken");
-const firebaseAdmin = require("../config/firebase");
+const db = require("../../config/db");
+const { generateVendorToken } = require("../../config/vendorToken");
+const firebaseAdmin = require("../../config/firebase");
 
-// get all Vendors
+// get all Vendors (Only Owners)
 exports.getAllVendors = async (req, res) => {
   try {
     let { page, limit, status } = req.query;
@@ -13,8 +13,8 @@ exports.getAllVendors = async (req, res) => {
     const offset = (page - 1) * limit; // Calculate offset for pagination
 
     // Initialize SQL query and parameters array
-    let sqlQuery = "SELECT * FROM vendors WHERE 1=1"; // 1=1 makes appending conditions easier
-    const queryParams = [];
+    let sqlQuery = "SELECT * FROM vendors WHERE role = ?"; // Default role = 'Owner'
+    const queryParams = ["Owner"];
 
     // Add filters for status if provided
     if (status) {
@@ -38,8 +38,8 @@ exports.getAllVendors = async (req, res) => {
     }
 
     // Get total count of vendors for pagination info (with the same filters)
-    let countQuery = "SELECT COUNT(*) as count FROM vendors WHERE 1=1";
-    const countParams = [];
+    let countQuery = "SELECT COUNT(*) as count FROM vendors WHERE role = ?";
+    const countParams = ["Owner"];
 
     // Add the same filters for total count query
     if (status) {
@@ -53,7 +53,7 @@ exports.getAllVendors = async (req, res) => {
     // Send response with vendors data and pagination info
     res.status(200).send({
       success: true,
-      message: "All Vendors",
+      message: "All Vendors (Owners)",
       totalVendors: totalVendors,
       currentPage: page,
       totalPages: Math.ceil(totalVendors / limit),
@@ -92,6 +92,11 @@ exports.verifyVendorToken = async (req, res) => {
       uid,
     ]);
 
+    const [checkManeger] = await db.query(
+      `SELECT * FROM vendors WHERE email=? AND role=?`,
+      [email, "Manager"]
+    );
+
     if (checkData.length > 0) {
       const existingVendor = checkData[0];
       const authToken = generateVendorToken({ uid: existingVendor.uid });
@@ -101,10 +106,36 @@ exports.verifyVendorToken = async (req, res) => {
         message: "Vendor already exists",
         token: authToken,
       });
-    } else {
+    } else if (checkManeger.length > 0) {
+      await db.query(`UPDATE vendors SET uid=? WHERE email = ?`, [uid, email]);
       await db.query(
-        `INSERT INTO vendors (uid, name, email, profile_picture, sign_up_method) VALUES (?, ?, ?, ?, ?)`,
-        [uid, name || "", email || "", picture || "", signUpMethod]
+        `UPDATE vendors_employees SET profile_picture=? WHERE email = ?`,
+        [picture || "", email]
+      );
+
+      const authToken = generateVendorToken({ uid: uid });
+
+      res.status(200).json({
+        success: true,
+        message: "Manager Login Successfully",
+        token: authToken,
+      });
+    } else {
+      const [businessData] = await db.query(
+        "SELECT busn_id FROM vendor_busn_info ORDER BY id DESC LIMIT 1"
+      );
+      const lastBusnId = businessData[0].busn_id;
+      const numericPart = parseInt(lastBusnId.substring(1), 10) + 1;
+      const busn_id = `v${numericPart}`;
+
+      await db.query(
+        `INSERT INTO vendors (uid, busn_id, name, email, sign_up_method) VALUES (?, ?, ?, ?, ?)`,
+        [uid, busn_id, name || "", email || "", signUpMethod]
+      );
+
+      await db.query(
+        `INSERT INTO vendor_busn_info (busn_id, name, profile_picture) VALUES (?, ?, ?)`,
+        [busn_id, name || "", picture || ""]
       );
 
       const authToken = generateVendorToken({ uid: uid });
@@ -127,17 +158,32 @@ exports.verifyVendorToken = async (req, res) => {
 // get single vendor by id
 exports.getSingleVendor = async (req, res) => {
   try {
-    const vendorId = req.params.id;
-    if (!vendorId) {
-      return res.status(201).send({
-        success: false,
-        message: "vendor ID is required in params",
-      });
-    }
+    const { busn_id } = req.params;
 
-    const [data] = await db.query(`SELECT * FROM vendors WHERE id=? `, [
-      vendorId,
-    ]);
+    const [data] = await db.query(
+      `SELECT v.id,
+      v.busn_id,
+      v.role,
+      v.email,
+      vbi.name,
+      vbi.phone,
+      vbi.emergency_phone,
+      vbi.about,
+      vbi.company_name,
+      vbi.business_lisence,
+      vbi.profile_picture,
+      vbi.banner,
+      vbi.nid_card_front,
+      vbi.nid_card_back,
+      vbi.is_active,
+      vbi.status,
+      vbi.verify_status
+      FROM vendors v
+      LEFT JOIN vendor_busn_info vbi ON v.busn_id = vbi.busn_id
+      WHERE v.busn_id=? `,
+      [busn_id]
+    );
+
     if (!data || data.length === 0) {
       return res.status(201).send({
         success: false,
@@ -238,6 +284,85 @@ exports.getMeVendor = async (req, res) => {
   try {
     const vendor = req.decodedVendor;
     res.status(200).json(vendor);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// get my profile vendor
+exports.getMyProfileVendor = async (req, res) => {
+  try {
+    const vendor = req.decodedVendor;
+
+    let data = {};
+    if (vendor.role == "Owner") {
+      const [vendorData] = await db.query(
+        `SELECT 
+          v.id,
+          v.busn_id,
+          v.role,
+          v.uid,
+          v.email,
+          v.sign_up_method,
+          vbi.name,
+          vbi.phone,
+          vbi.emergency_phone,
+          vbi.about,
+          vbi.company_name,
+          vbi.business_lisence,
+          vbi.profile_picture,
+          vbi.banner,
+          vbi.nid_card_front,
+          vbi.nid_card_back,
+          vbi.is_active,
+          vbi.status,
+          vbi.verify_status
+        FROM vendors v
+        LEFT JOIN vendor_busn_info vbi ON v.busn_id = vbi.busn_id
+        WHERE v.id=? `,
+        [vendor.id]
+      );
+
+      data = vendorData[0];
+    } else {
+      const [employeeData] = await db.query(
+        `SELECT 
+          vem.id,
+          vem.vendor_id,
+          v.busn_id,
+          v.role,
+          v.uid,
+          v.sign_up_method,
+          v.is_active,
+          vem.employee_position,
+          vem.name,
+          vem.profile_picture,
+          vem.date_of_birth,
+          vem.gender,
+          vem.permanent_address,
+          vem.current_address,
+          vem.mobile_number,
+          vem.email,
+          vem.blood_type,
+          vem.nid_card_or_birth_certificate,
+          vem.designation,
+          vem.department,
+          vem.salary,
+          vem.job_type
+        FROM vendors v
+        LEFT JOIN vendors_employees vem ON v.email = vem.email
+        WHERE v.id=? `,
+        [vendor.id]
+      );
+
+      data = employeeData[0];
+    }
+
+    res.status(200).json(data);
   } catch (error) {
     res.status(400).json({
       success: false,
